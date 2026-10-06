@@ -1,0 +1,357 @@
+const productGrid = document.getElementById('productGrid');
+const cartItemsEl = document.getElementById('cartItems');
+const cartToggle = document.getElementById('cartToggle');
+const closeCart = document.getElementById('closeCart');
+const cartDrawer = document.getElementById('cartDrawer');
+const checkoutCartBtn = document.getElementById('checkoutCartBtn');
+const ordersList = document.getElementById('ordersList');
+const enquiriesList = document.getElementById('enquiriesList');
+const orderForm = document.getElementById('orderForm');
+const contactForm = document.getElementById('contactForm');
+const orderSuccessModal = document.getElementById('orderSuccessModal');
+const successOrderNumber = document.getElementById('successOrderNumber');
+const successTotal = document.getElementById('successTotal');
+
+let cart = JSON.parse(localStorage.getItem('indumaCart') || '[]');
+let products = [];
+
+const formatPrice = (value) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(value);
+
+function getShipping(subtotal) {
+  return subtotal > 0 ? (subtotal >= 1499 ? 0 : 79) : 0;
+}
+
+function getCartTotals() {
+  const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const shipping = getShipping(subtotal);
+  const total = subtotal + shipping;
+  return { subtotal, shipping, total };
+}
+
+function bindCartActions() {
+  document.querySelectorAll('.increase-item').forEach((button) => {
+    button.addEventListener('click', () => {
+      const id = button.dataset.id;
+      const item = cart.find((entry) => entry.id === id);
+      if (item) {
+        item.quantity += 1;
+        saveCart();
+        renderCart();
+      }
+    });
+  });
+
+  document.querySelectorAll('.decrease-item').forEach((button) => {
+    button.addEventListener('click', () => {
+      const id = button.dataset.id;
+      const item = cart.find((entry) => entry.id === id);
+      if (item) {
+        item.quantity = Math.max(1, item.quantity - 1);
+        saveCart();
+        renderCart();
+      }
+    });
+  });
+
+  document.querySelectorAll('.remove-item').forEach((button) => {
+    button.addEventListener('click', () => {
+      const id = button.dataset.id;
+      cart = cart.filter((entry) => entry.id !== id);
+      saveCart();
+      renderCart();
+    });
+  });
+}
+
+function saveCart() {
+  localStorage.setItem('indumaCart', JSON.stringify(cart));
+  updateCartCount();
+}
+
+function updateCartCount() {
+  const count = cart.reduce((sum, item) => sum + item.quantity, 0);
+  document.getElementById('cartCount').textContent = count;
+}
+
+function renderProducts() {
+  productGrid.innerHTML = products
+    .map(
+      (product) => `
+        <article class="product-card">
+          <img src="${product.image}" alt="${product.name}" />
+          <div class="product-content">
+            <h3>${product.name}</h3>
+            <p class="product-copy">${product.description}</p>
+            <div class="meta-row">
+              <span>${product.weight}</span>
+              <span class="product-price">${formatPrice(product.price)}</span>
+            </div>
+            <div class="qty-row">
+              <span>Qty</span>
+              <div class="qty-controls">
+                <button class="qty-button decrease-product" data-id="${product.id}" aria-label="Decrease quantity">−</button>
+                <span class="qty-value">1</span>
+                <button class="qty-button increase-product" data-id="${product.id}" aria-label="Increase quantity">+</button>
+              </div>
+            </div>
+            <div class="product-actions">
+              <button class="card-action primary add-to-cart" data-id="${product.id}">Add to Cart</button>
+              <button class="card-action secondary buy-now" data-id="${product.id}">Buy Now</button>
+            </div>
+            <details class="product-details">
+              <summary>Product details</summary>
+              <div class="details-content">
+                <div><strong>Ingredients:</strong> ${product.ingredients}</div>
+                <div><strong>Storage:</strong> ${product.storage}</div>
+                <div><strong>Reviews:</strong> ${product.reviews.map((review) => `“${review}”`).join(' ')}</div>
+              </div>
+            </details>
+          </div>
+        </article>
+      `
+    )
+    .join('');
+
+  document.querySelectorAll('.increase-product').forEach((button) => {
+    button.addEventListener('click', () => {
+      const target = button.closest('.qty-row').querySelector('.qty-value');
+      const current = Number(target.textContent);
+      target.textContent = current + 1;
+    });
+  });
+
+  document.querySelectorAll('.decrease-product').forEach((button) => {
+    button.addEventListener('click', () => {
+      const target = button.closest('.qty-row').querySelector('.qty-value');
+      const current = Number(target.textContent);
+      target.textContent = Math.max(1, current - 1);
+    });
+  });
+
+  document.querySelectorAll('.add-to-cart').forEach((button) => {
+    button.addEventListener('click', () => {
+      const productId = button.dataset.id;
+      const product = products.find((item) => item.id === productId);
+      const qtyEl = button.closest('.product-content').querySelector('.qty-value');
+      const quantity = Number(qtyEl.textContent || 1);
+      addToCart(product, quantity);
+    });
+  });
+
+  document.querySelectorAll('.buy-now').forEach((button) => {
+    button.addEventListener('click', () => {
+      const productId = button.dataset.id;
+      const product = products.find((item) => item.id === productId);
+      const qtyEl = button.closest('.product-content').querySelector('.qty-value');
+      const quantity = Number(qtyEl.textContent || 1);
+      addToCart(product, quantity);
+      document.getElementById('checkoutCartBtn').click();
+      document.getElementById('orderForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+}
+
+function addToCart(product, quantity = 1) {
+  const existing = cart.find((item) => item.id === product.id);
+  if (existing) {
+    existing.quantity += quantity;
+  } else {
+    cart.push({ ...product, quantity });
+  }
+
+  saveCart();
+  renderCart();
+}
+
+function renderCart() {
+  const { subtotal, shipping, total } = getCartTotals();
+  const cartItems = cart.length ? cart : [];
+
+  if (!cartItems.length) {
+    cartItemsEl.innerHTML = '<p class="empty-state">Your cart is empty. Add a few premium Hing favourites.</p>';
+  } else {
+    cartItemsEl.innerHTML = cartItems
+      .map(
+        (item) => `
+          <div class="cart-item">
+            <img src="${item.image}" alt="${item.name}" />
+            <div>
+              <h4>${item.name}</h4>
+              <p>${formatPrice(item.price)} each</p>
+              <div class="cart-item-actions">
+                <div class="qty-controls">
+                  <button class="qty-button decrease-item" data-id="${item.id}">−</button>
+                  <span class="qty-value">${item.quantity}</span>
+                  <button class="qty-button increase-item" data-id="${item.id}">+</button>
+                </div>
+                <button class="remove-item" data-id="${item.id}">Remove</button>
+              </div>
+            </div>
+            <strong>${formatPrice(item.price * item.quantity)}</strong>
+          </div>
+        `
+      )
+      .join('');
+  }
+
+  document.getElementById('cartSubtotal').textContent = formatPrice(subtotal);
+  document.getElementById('cartShipping').textContent = formatPrice(shipping);
+  document.getElementById('cartTotal').textContent = formatPrice(total);
+
+  document.getElementById('checkoutSubtotal').textContent = formatPrice(subtotal);
+  document.getElementById('checkoutShipping').textContent = formatPrice(shipping);
+  document.getElementById('checkoutTotal').textContent = formatPrice(total);
+
+  renderCheckoutItems();
+  bindCartActions();
+}
+
+function renderCheckoutItems() {
+  const checkoutItems = document.getElementById('checkoutItems');
+  if (!cart.length) {
+    checkoutItems.innerHTML = '<p class="empty-state">Add products to proceed.</p>';
+    return;
+  }
+
+  checkoutItems.innerHTML = cart
+    .map(
+      (item) => `
+        <div class="checkout-item">
+          <span>${item.name} x ${item.quantity}</span>
+          <strong>${formatPrice(item.price * item.quantity)}</strong>
+        </div>
+      `
+    )
+    .join('');
+}
+
+async function fetchProducts() {
+  const response = await fetch('/api/products');
+  products = await response.json();
+  renderProducts();
+}
+
+async function loadDashboard() {
+  const [ordersResponse, enquiriesResponse] = await Promise.all([
+    fetch('/api/orders'),
+    fetch('/api/enquiries')
+  ]);
+
+  const orders = await ordersResponse.json();
+  const enquiries = await enquiriesResponse.json();
+
+  ordersList.innerHTML = orders.length
+    ? orders.slice(0, 6).map((order) => `
+        <div class="mini-item">
+          <strong>${order.orderNumber}</strong><br>
+          <span>${order.customer.fullName}</span><br>
+          <small>${new Date(order.createdAt).toLocaleDateString('en-IN')} • ${formatPrice(order.total)}</small>
+        </div>
+      `).join('')
+    : '<div class="mini-item">No orders yet.</div>';
+
+  enquiriesList.innerHTML = enquiries.length
+    ? enquiries.slice(0, 6).map((enquiry) => `
+        <div class="mini-item">
+          <strong>${enquiry.name}</strong><br>
+          <span>${enquiry.email}</span><br>
+          <small>${new Date(enquiry.createdAt).toLocaleDateString('en-IN')}</small>
+        </div>
+      `).join('')
+    : '<div class="mini-item">No enquiries yet.</div>';
+}
+
+cartToggle.addEventListener('click', () => {
+  cartDrawer.classList.add('open');
+  cartDrawer.setAttribute('aria-hidden', 'false');
+});
+
+closeCart.addEventListener('click', () => {
+  cartDrawer.classList.remove('open');
+  cartDrawer.setAttribute('aria-hidden', 'true');
+});
+
+checkoutCartBtn.addEventListener('click', () => {
+  cartDrawer.classList.remove('open');
+  document.getElementById('orderForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
+orderForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  if (!cart.length) {
+    alert('Your cart is empty. Please add products before checkout.');
+    return;
+  }
+
+  const formData = new FormData(orderForm);
+  const values = Object.fromEntries(formData.entries());
+  const { subtotal, shipping, total } = getCartTotals();
+
+  const payload = {
+    customer: {
+      fullName: values.fullName,
+      mobile: values.mobile,
+      email: values.email,
+      houseNumber: values.houseNumber,
+      streetArea: values.streetArea,
+      city: values.city,
+      state: values.state,
+      pinCode: values.pinCode,
+      deliveryAddress: values.deliveryAddress
+    },
+    items: cart.map(({ id, name, quantity, price }) => ({ id, name, quantity, price })),
+    subtotal,
+    shipping,
+    total,
+    paymentMethod: values.paymentMethod,
+    orderNotes: values.orderNotes || ''
+  };
+
+  const response = await fetch('/api/checkout', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+
+  const result = await response.json();
+  if (!response.ok) {
+    alert(result.message || 'Something went wrong.');
+    return;
+  }
+
+  cart = [];
+  localStorage.removeItem('indumaCart');
+  renderCart();
+  updateCartCount();
+  orderForm.reset();
+  successOrderNumber.textContent = result.order.orderNumber;
+  successTotal.textContent = formatPrice(result.order.total);
+  orderSuccessModal.classList.remove('hidden');
+  loadDashboard();
+});
+
+contactForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const formData = new FormData(contactForm);
+  const payload = Object.fromEntries(formData.entries());
+
+  const response = await fetch('/api/contact', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+
+  const result = await response.json();
+  alert(result.message || 'Your enquiry was sent.');
+  contactForm.reset();
+  loadDashboard();
+});
+
+document.getElementById('closeSuccess').addEventListener('click', () => {
+  orderSuccessModal.classList.add('hidden');
+});
+
+fetchProducts();
+renderCart();
+loadDashboard();
+updateCartCount();
