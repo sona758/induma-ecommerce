@@ -1,401 +1,367 @@
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>INDUMA | Premium Hing</title>
-    <meta
-      name="description"
-      content="INDUMA brings premium Indian hing and hing-based food products to modern kitchens with authenticity, warmth and trust."
-    />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="stylesheet" href="/styles.css" />
-  </head>
-  <body>
-    <header class="site-header">
-      <div class="container nav-wrap">
-        <a href="#top" class="brand-mark" aria-label="INDUMA home">
-          <img src="/images/induma-logo.svg" alt="INDUMA logo" />
-        </a>
+const productGrid = document.getElementById('productGrid');
+const cartItemsEl = document.getElementById('cartItems');
+const cartToggle = document.getElementById('cartToggle');
+const closeCart = document.getElementById('closeCart');
+const cartDrawer = document.getElementById('cartDrawer');
+const checkoutCartBtn = document.getElementById('checkoutCartBtn');
+const ordersList = document.getElementById('ordersList');
+const enquiriesList = document.getElementById('enquiriesList');
+const orderForm = document.getElementById('orderForm');
+const contactForm = document.getElementById('contactForm');
+const orderSuccessModal = document.getElementById('orderSuccessModal');
+const successOrderNumber = document.getElementById('successOrderNumber');
+const successTotal = document.getElementById('successTotal');
 
-        <nav class="main-nav" aria-label="Main menu">
-          <a href="#top">Home</a>
-          <a href="#shop">Shop</a>
-          <a href="#story">Our Story</a>
-          <a href="#recipes">Recipes</a>
-          <a href="#contact">Contact</a>
-          <a href="#faq">FAQs</a>
-        </nav>
+let cart = JSON.parse(localStorage.getItem('indumaCart') || '[]');
+let products = [];
 
-        <button class="cart-toggle" id="cartToggle" aria-label="Open cart">
-          Cart <span id="cartCount">0</span>
-        </button>
-      </div>
-    </header>
+const formatPrice = (value) =>
+  new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(value);
 
-    <main id="top">
-      <section class="hero-section">
-        <div class="container hero-grid">
-          <div class="hero-copy">
-            <p class="eyebrow">PREMIUM HING FROM INDIA</p>
-            <h1>PURE HING. PURE INDIAN.</h1>
-            <p class="subhead">
-              An age-old Indian ingredient, thoughtfully brought to the modern kitchen.
-            </p>
-            <div class="cta-row">
-              <a href="#shop" class="btn btn-primary">SHOP NOW</a>
-              <a href="#story" class="btn btn-secondary">OUR STORY</a>
+function getShipping(subtotal) {
+  return subtotal > 0 ? (subtotal >= 1499 ? 0 : 79) : 0;
+}
+
+function getCartTotals() {
+  const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const shipping = getShipping(subtotal);
+  const total = subtotal + shipping;
+  return { subtotal, shipping, total };
+}
+
+function bindCartActions() {
+  document.querySelectorAll('.increase-item').forEach((button) => {
+    button.addEventListener('click', () => {
+      const id = button.dataset.id;
+      const item = cart.find((entry) => entry.id === id);
+      if (item) {
+        item.quantity += 1;
+        saveCart();
+        renderCart();
+      }
+    });
+  });
+
+  document.querySelectorAll('.decrease-item').forEach((button) => {
+    button.addEventListener('click', () => {
+      const id = button.dataset.id;
+      const item = cart.find((entry) => entry.id === id);
+      if (item) {
+        item.quantity = Math.max(1, item.quantity - 1);
+        saveCart();
+        renderCart();
+      }
+    });
+  });
+
+  document.querySelectorAll('.remove-item').forEach((button) => {
+    button.addEventListener('click', () => {
+      const id = button.dataset.id;
+      cart = cart.filter((entry) => entry.id !== id);
+      saveCart();
+      renderCart();
+    });
+  });
+}
+
+function saveCart() {
+  localStorage.setItem('indumaCart', JSON.stringify(cart));
+  updateCartCount();
+}
+
+function updateCartCount() {
+  const count = cart.reduce((sum, item) => sum + item.quantity, 0);
+  document.getElementById('cartCount').textContent = count;
+}
+
+function renderProducts() {
+  productGrid.innerHTML = products
+    .map(
+      (product) => `
+        <article class="product-card">
+          <img src="${product.image}" alt="${product.name}" />
+          <div class="product-content">
+            <h3>${product.name}</h3>
+            <p class="product-copy">${product.description}</p>
+            <div class="meta-row">
+              <span>${product.weight}</span>
+              <span class="product-price">${formatPrice(product.price)}</span>
             </div>
-            <div class="hero-highlights">
-              <div>
-                <strong>Single-origin</strong>
-                <span>Traditional sourcing</span>
+            <div class="qty-row">
+              <span>Qty</span>
+              <div class="qty-controls">
+                <button class="qty-button decrease-product" data-id="${product.id}" aria-label="Decrease quantity">−</button>
+                <span class="qty-value">1</span>
+                <button class="qty-button increase-product" data-id="${product.id}" aria-label="Increase quantity">+</button>
               </div>
-              <div>
-                <strong>Pure & authentic</strong>
-                <span>Slow crafted</span>
+            </div>
+            <div class="product-actions">
+              <button class="card-action primary add-to-cart" data-id="${product.id}">Add to Cart</button>
+              <button class="card-action secondary buy-now" data-id="${product.id}">Buy Now</button>
+            </div>
+            <details class="product-details">
+              <summary>Product details</summary>
+              <div class="details-content">
+                <div><strong>Ingredients:</strong> ${product.ingredients}</div>
+                <div><strong>Storage:</strong> ${product.storage}</div>
+                <div><strong>Reviews:</strong> ${product.reviews.map((review) => `“${review}”`).join(' ')}</div>
               </div>
-              <div>
-                <strong>Modern kitchen</strong>
-                <span>Easy daily use</span>
-              </div>
-            </div>
+            </details>
           </div>
+        </article>
+      `
+    )
+    .join('');
 
-          <div class="hero-visual">
-            <div class="hero-card frame-one">
-              <img
-                src="https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=800&q=80"
-                alt="Premium asafoetida ingredients"
-              />
-            </div>
-          </div>
-        </div>
-      </section>
+  document.querySelectorAll('.increase-product').forEach((button) => {
+    button.addEventListener('click', () => {
+      const target = button.closest('.qty-row').querySelector('.qty-value');
+      const current = Number(target.textContent);
+      target.textContent = current + 1;
+    });
+  });
 
-      <section class="feature-strip">
-        <div class="container feature-grid">
-          <div>
-            <span>Traditional</span>
-            <strong>Indian purity</strong>
-          </div>
-          <div>
-            <span>Modern ritual</span>
-            <strong>Everyday flavour</strong>
-          </div>
-          <div>
-            <span>Handpicked</span>
-            <strong>Premium ingredients</strong>
-          </div>
-        </div>
-      </section>
+  document.querySelectorAll('.decrease-product').forEach((button) => {
+    button.addEventListener('click', () => {
+      const target = button.closest('.qty-row').querySelector('.qty-value');
+      const current = Number(target.textContent);
+      target.textContent = Math.max(1, current - 1);
+    });
+  });
 
-      <section class="story-section" id="story">
-        <div class="container split-section">
-          <div class="story-copy">
-            <p class="eyebrow accent">ABOUT INDUMA</p>
-            <h2>Rooted in Tradition. Made for Today.</h2>
-            <p>
-              INDUMA was born from the timeless Indian relationship with hing — a spice of depth,
-              aroma and memory. We bring this age-old ingredient into a premium, modern form that fits
-              the way families cook today.
-            </p>
-            <p>
-              Inspired by heritage kitchens and the warmth of home-cooked food, INDUMA celebrates the
-              earthy richness of hing while delivering purity, consistency and elegance in every jar.
-            </p>
-          </div>
-          <div class="story-visual">
-            <div class="story-photo">
-              <img
-                src="https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=900&q=80"
-                alt="Indian kitchen lifestyle"
-              />
-            </div>
-          </div>
-        </div>
-      </section>
+  document.querySelectorAll('.add-to-cart').forEach((button) => {
+    button.addEventListener('click', () => {
+      const productId = button.dataset.id;
+      const product = products.find((item) => item.id === productId);
+      const qtyEl = button.closest('.product-content').querySelector('.qty-value');
+      const quantity = Number(qtyEl.textContent || 1);
+      addToCart(product, quantity);
+    });
+  });
 
-      <section class="why-section">
-        <div class="container">
-          <p class="eyebrow center">WHY INDUMA</p>
-          <div class="why-grid">
-            <article class="why-card">
-              <span>PURE</span>
-              <p>Uncompromised purity and integrity in every batch.</p>
-            </article>
-            <article class="why-card">
-              <span>AUTHENTIC</span>
-              <p>Inspired by traditional Indian culinary wisdom.</p>
-            </article>
-            <article class="why-card">
-              <span>PREMIUM</span>
-              <p>Refined quality, elevated packaging and rich aroma.</p>
-            </article>
-            <article class="why-card">
-              <span>MODERN</span>
-              <p>Designed for busy kitchens, real routines and everyday use.</p>
-            </article>
-          </div>
-        </div>
-      </section>
+  document.querySelectorAll('.buy-now').forEach((button) => {
+    button.addEventListener('click', () => {
+      const productId = button.dataset.id;
+      const product = products.find((item) => item.id === productId);
+      const qtyEl = button.closest('.product-content').querySelector('.qty-value');
+      const quantity = Number(qtyEl.textContent || 1);
+      addToCart(product, quantity);
+      cartDrawer.classList.add('open');
+      document.getElementById('orderForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+}
 
-      <section class="shop-section" id="shop">
-        <div class="container">
-          <div class="section-head">
+function addToCart(product, quantity = 1) {
+  const existing = cart.find((item) => item.id === product.id);
+  if (existing) {
+    existing.quantity += quantity;
+  } else {
+    cart.push({ ...product, quantity });
+  }
+
+  saveCart();
+  renderCart();
+}
+
+function renderCart() {
+  const { subtotal, shipping, total } = getCartTotals();
+
+  if (!cart.length) {
+    cartItemsEl.innerHTML = '<p class="empty-state">Your cart is empty. Add a few premium Hing favourites.</p>';
+  } else {
+    cartItemsEl.innerHTML = cart
+      .map(
+        (item) => `
+          <div class="cart-item">
+            <img src="${item.image}" alt="${item.name}" />
             <div>
-              <p class="eyebrow accent">PRODUCT COLLECTION</p>
-              <h2>Crafted for the everyday Indian kitchen</h2>
-            </div>
-          </div>
-          <div id="productGrid" class="product-grid"></div>
-        </div>
-      </section>
-
-      <section class="recipe-section" id="recipes">
-        <div class="container">
-          <p class="eyebrow accent">RECIPES</p>
-          <h2>A Little Hing Goes a Long Way</h2>
-          <div class="recipe-grid">
-            <div class="recipe-item"><span>Dal</span></div>
-            <div class="recipe-item"><span>Kadhi</span></div>
-            <div class="recipe-item"><span>Chole</span></div>
-            <div class="recipe-item"><span>Rajma</span></div>
-            <div class="recipe-item"><span>Raita</span></div>
-            <div class="recipe-item"><span>Sabzi</span></div>
-            <div class="recipe-item"><span>Chaat</span></div>
-          </div>
-        </div>
-      </section>
-
-      <section class="checkout-section">
-        <div class="container checkout-grid">
-          <div class="panel order-panel">
-            <div class="panel-head">
-              <p class="eyebrow accent">CHECKOUT</p>
-              <h3>Complete your order</h3>
-            </div>
-
-            <form id="orderForm" class="checkout-form">
-              <div class="form-grid two-col">
-                <label>
-                  <span>Full Name</span>
-                  <input type="text" name="fullName" required />
-                </label>
-                <label>
-                  <span>Mobile Number</span>
-                  <input type="tel" name="mobile" required />
-                </label>
-                <label>
-                  <span>Email Address</span>
-                  <input type="email" name="email" required />
-                </label>
-                <label>
-                  <span>House/Flat Number</span>
-                  <input type="text" name="houseNumber" required />
-                </label>
-                <label>
-                  <span>Street/Area</span>
-                  <input type="text" name="streetArea" required />
-                </label>
-                <label>
-                  <span>City</span>
-                  <input type="text" name="city" required />
-                </label>
-                <label>
-                  <span>State</span>
-                  <input type="text" name="state" required />
-                </label>
-                <label>
-                  <span>PIN Code</span>
-                  <input type="text" name="pinCode" required />
-                </label>
-              </div>
-
-              <label>
-                <span>Delivery Address</span>
-                <textarea name="deliveryAddress" rows="3" required></textarea>
-              </label>
-
-              <label>
-                <span>Order Notes</span>
-                <textarea name="orderNotes" rows="3" placeholder="Any delivery instructions or preferences"></textarea>
-              </label>
-
-              <div class="payment-options">
-                <p>Payment Options</p>
-                <div class="payment-grid">
-                  <label><input type="radio" name="paymentMethod" value="UPI" checked /> UPI</label>
-                  <label><input type="radio" name="paymentMethod" value="Credit/Debit Card" /> Credit/Debit Card</label>
-                  <label><input type="radio" name="paymentMethod" value="Net Banking" /> Net Banking</label>
-                  <label><input type="radio" name="paymentMethod" value="Cash on Delivery" /> Cash on Delivery</label>
-                  <label><input type="radio" name="paymentMethod" value="Manual/Offline Payment" /> Manual/Offline Payment</label>
+              <h4>${item.name}</h4>
+              <p>${formatPrice(item.price)} each</p>
+              <div class="cart-item-actions">
+                <div class="qty-controls">
+                  <button class="qty-button decrease-item" data-id="${item.id}">−</button>
+                  <span class="qty-value">${item.quantity}</span>
+                  <button class="qty-button increase-item" data-id="${item.id}">+</button>
                 </div>
+                <button class="remove-item" data-id="${item.id}">Remove</button>
               </div>
-
-              <button type="submit" class="btn btn-primary btn-block">PLACE ORDER</button>
-            </form>
+            </div>
+            <strong>${formatPrice(item.price * item.quantity)}</strong>
           </div>
+        `
+      )
+      .join('');
+  }
 
-          <aside class="panel summary-panel">
-            <div class="panel-head">
-              <p class="eyebrow accent">ORDER SUMMARY</p>
-              <h3>Your basket</h3>
-            </div>
-            <div id="checkoutItems" class="checkout-items"></div>
-            <div class="totals-box">
-              <div class="row"><span>Subtotal</span><strong id="checkoutSubtotal">₹0</strong></div>
-              <div class="row"><span>Shipping</span><strong id="checkoutShipping">₹0</strong></div>
-              <div class="row total"><span>Total</span><strong id="checkoutTotal">₹0</strong></div>
-            </div>
-          </aside>
+  document.getElementById('cartSubtotal').textContent = formatPrice(subtotal);
+  document.getElementById('cartShipping').textContent = formatPrice(shipping);
+  document.getElementById('cartTotal').textContent = formatPrice(total);
+
+  document.getElementById('checkoutSubtotal').textContent = formatPrice(subtotal);
+  document.getElementById('checkoutShipping').textContent = formatPrice(shipping);
+  document.getElementById('checkoutTotal').textContent = formatPrice(total);
+
+  renderCheckoutItems();
+  bindCartActions();
+}
+
+function renderCheckoutItems() {
+  const checkoutItems = document.getElementById('checkoutItems');
+  if (!cart.length) {
+    checkoutItems.innerHTML = '<p class="empty-state">Add products to proceed.</p>';
+    return;
+  }
+
+  checkoutItems.innerHTML = cart
+    .map(
+      (item) => `
+        <div class="checkout-item">
+          <span>${item.name} x ${item.quantity}</span>
+          <strong>${formatPrice(item.price * item.quantity)}</strong>
         </div>
-      </section>
+      `
+    )
+    .join('');
+}
 
-      <section class="dashboard-section" id="dashboard">
-        <div class="container">
-          <p class="eyebrow accent">ORDER DASHBOARD</p>
-          <h2>Manage orders and enquiries</h2>
-          <div class="dashboard-grid">
-            <div class="panel">
-              <h3>Recent Orders</h3>
-              <div id="ordersList" class="mini-list"></div>
-            </div>
-            <div class="panel">
-              <h3>Recent Enquiries</h3>
-              <div id="enquiriesList" class="mini-list"></div>
-            </div>
+async function fetchProducts() {
+  const response = await fetch('/api/products');
+  products = await response.json();
+  renderProducts();
+}
+
+async function loadDashboard() {
+  const [ordersResponse, enquiriesResponse] = await Promise.all([
+    fetch('/api/orders'),
+    fetch('/api/enquiries')
+  ]);
+
+  const orders = await ordersResponse.json();
+  const enquiries = await enquiriesResponse.json();
+
+  ordersList.innerHTML = orders.length
+    ? orders
+        .slice(0, 6)
+        .map(
+          (order) => `
+          <div class="mini-item">
+            <strong>${order.orderNumber}</strong><br>
+            <span>${order.customer.fullName}</span><br>
+            <small>${new Date(order.createdAt).toLocaleDateString('en-IN')} • ${formatPrice(order.total)}</small>
           </div>
-        </div>
-      </section>
+        `
+        )
+        .join('')
+    : '<div class="mini-item">No orders yet.</div>';
 
-      <section class="contact-section" id="contact">
-        <div class="container contact-grid">
-          <div>
-            <p class="eyebrow accent">CONTACT US</p>
-            <h2>We’d love to hear from you.</h2>
-            <p>Questions about products, gifting, bulk orders or recipes? Reach out and we’ll be happy to help.</p>
-            <div class="contact-details">
-              <p>Email: <a href="mailto:ecog.india1@gmail.com">ecog.india1@gmail.com</a></p>
-              <a class="whatsapp-btn" href="https://wa.me/919999999999?text=Hi%20INDUMA%2C%20I%20want%20to%20know%20more%20about%20your%20products." target="_blank" rel="noreferrer">
-                WhatsApp Us
-              </a>
-            </div>
+  enquiriesList.innerHTML = enquiries.length
+    ? enquiries
+        .slice(0, 6)
+        .map(
+          (enquiry) => `
+          <div class="mini-item">
+            <strong>${enquiry.name}</strong><br>
+            <span>${enquiry.email}</span><br>
+            <small>${new Date(enquiry.createdAt).toLocaleDateString('en-IN')}</small>
           </div>
+        `
+        )
+        .join('')
+    : '<div class="mini-item">No enquiries yet.</div>';
+}
 
-          <form id="contactForm" class="contact-form panel">
-            <label>
-              <span>Name</span>
-              <input type="text" name="name" required />
-            </label>
-            <label>
-              <span>Mobile Number</span>
-              <input type="tel" name="mobile" required />
-            </label>
-            <label>
-              <span>Email</span>
-              <input type="email" name="email" required />
-            </label>
-            <label>
-              <span>Message</span>
-              <textarea name="message" rows="4" required></textarea>
-            </label>
-            <button type="submit" class="btn btn-primary btn-block">SEND ENQUIRY</button>
-          </form>
-        </div>
-      </section>
+cartToggle.addEventListener('click', () => {
+  cartDrawer.classList.add('open');
+  cartDrawer.setAttribute('aria-hidden', 'false');
+});
 
-      <section class="faq-section" id="faq">
-        <div class="container">
-          <p class="eyebrow accent">FAQs</p>
-          <div class="faq-grid">
-            <article>
-              <h4>How do I use hing?</h4>
-              <p>Use a small pinch in tadka, dals, curries and chaat for depth and aroma.</p>
-            </article>
-            <article>
-              <h4>Is your hing pure?</h4>
-              <p>Yes. INDUMA focuses on authentic, premium and clean products made for modern use.</p>
-            </article>
-            <article>
-              <h4>Do you offer shipping?</h4>
-              <p>Yes, with nationwide shipping and transparent delivery information.</p>
-            </article>
-            <article>
-              <h4>Can I order in bulk?</h4>
-              <p>Yes. Please contact us through the enquiry form for gifting and wholesale inquiries.</p>
-            </article>
-          </div>
-        </div>
-      </section>
-    </main>
+closeCart.addEventListener('click', () => {
+  cartDrawer.classList.remove('open');
+  cartDrawer.setAttribute('aria-hidden', 'true');
+});
 
-    <aside id="cartDrawer" class="cart-drawer" aria-hidden="true">
-      <div class="drawer-header">
-        <h3>Your Cart</h3>
-        <button id="closeCart" class="icon-button" aria-label="Close cart">×</button>
-      </div>
-      <div id="cartItems" class="cart-items"></div>
-      <div class="drawer-summary">
-        <div class="row"><span>Subtotal</span><strong id="cartSubtotal">₹0</strong></div>
-        <div class="row"><span>Shipping</span><strong id="cartShipping">₹0</strong></div>
-        <div class="row total"><span>Total</span><strong id="cartTotal">₹0</strong></div>
-      </div>
-      <button id="checkoutCartBtn" class="btn btn-primary btn-block">PROCEED TO CHECKOUT</button>
-    </aside>
+checkoutCartBtn.addEventListener('click', () => {
+  cartDrawer.classList.remove('open');
+  document.getElementById('orderForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
 
-    <div id="orderSuccessModal" class="modal hidden" aria-live="polite">
-      <div class="modal-card">
-        <h3>Thank You for Choosing INDUMA.</h3>
-        <p>Your order has been received successfully.</p>
-        <p><strong>Order Number:</strong> <span id="successOrderNumber">-</span></p>
-        <p><strong>Total Amount:</strong> <span id="successTotal">₹0</span></p>
-        <button class="btn btn-primary" id="closeSuccess">Continue Shopping</button>
-      </div>
-    </div>
+orderForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  if (!cart.length) {
+    alert('Your cart is empty. Please add products before checkout.');
+    return;
+  }
 
-    <footer class="site-footer">
-      <div class="container footer-grid">
-        <div>
-          <img src="/images/induma-logo.svg" alt="INDUMA brand logo" class="footer-logo" />
-        </div>
-        <div>
-          <h4>Explore</h4>
-          <ul>
-            <li><a href="#top">Home</a></li>
-            <li><a href="#shop">Shop</a></li>
-            <li><a href="#story">Our Story</a></li>
-            <li><a href="#recipes">Recipes</a></li>
-            <li><a href="#contact">Contact</a></li>
-          </ul>
-        </div>
-        <div>
-          <h4>Support</h4>
-          <ul>
-            <li><a href="#faq">FAQs</a></li>
-            <li><a href="#">Shipping & Delivery</a></li>
-            <li><a href="#">Returns & Refunds</a></li>
-            <li><a href="#">Privacy Policy</a></li>
-            <li><a href="#">Terms & Conditions</a></li>
-          </ul>
-        </div>
-        <div>
-          <h4>Connect</h4>
-          <ul>
-            <li><a href="https://instagram.com" target="_blank" rel="noreferrer">Instagram</a></li>
-            <li><a href="https://facebook.com" target="_blank" rel="noreferrer">Facebook</a></li>
-            <li><a href="https://youtube.com" target="_blank" rel="noreferrer">YouTube</a></li>
-            <li><a href="mailto:ecog.india1@gmail.com">ecog.india1@gmail.com</a></li>
-          </ul>
-        </div>
-      </div>
-    </footer>
+  const formData = new FormData(orderForm);
+  const values = Object.fromEntries(formData.entries());
+  const { subtotal, shipping, total } = getCartTotals();
 
-    <script src="/app.js"></script>
-  </body>
-</html>
+  const payload = {
+    customer: {
+      fullName: values.fullName,
+      mobile: values.mobile,
+      email: values.email,
+      houseNumber: values.houseNumber,
+      streetArea: values.streetArea,
+      city: values.city,
+      state: values.state,
+      pinCode: values.pinCode,
+      deliveryAddress: values.deliveryAddress
+    },
+    items: cart.map(({ id, name, quantity, price }) => ({ id, name, quantity, price })),
+    subtotal,
+    shipping,
+    total,
+    paymentMethod: values.paymentMethod,
+    orderNotes: values.orderNotes || ''
+  };
+
+  const response = await fetch('/api/checkout', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+
+  const result = await response.json();
+  if (!response.ok) {
+    alert(result.message || 'Something went wrong.');
+    return;
+  }
+
+  cart = [];
+  localStorage.removeItem('indumaCart');
+  renderCart();
+  updateCartCount();
+  orderForm.reset();
+  successOrderNumber.textContent = result.order.orderNumber;
+  successTotal.textContent = formatPrice(result.order.total);
+  orderSuccessModal.classList.remove('hidden');
+  loadDashboard();
+});
+
+contactForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const formData = new FormData(contactForm);
+  const payload = Object.fromEntries(formData.entries());
+
+  const response = await fetch('/api/contact', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+
+  const result = await response.json();
+  alert(result.message || 'Your enquiry was sent.');
+  contactForm.reset();
+  loadDashboard();
+});
+
+document.getElementById('closeSuccess').addEventListener('click', () => {
+  orderSuccessModal.classList.add('hidden');
+});
+
+fetchProducts();
+renderCart();
+loadDashboard();
+updateCartCount();
